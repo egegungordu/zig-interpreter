@@ -179,12 +179,15 @@ fn primary(self: *Parser) !*Expr {
         },
         .LEFT_PAREN => {
             const expr = try self.expression();
-            _ = try self.consume(TokenType.RIGHT_PAREN, "Expected ')' after expression.");
+            _ = try self.consume(TokenType.RIGHT_PAREN, "Expect ')' after expression.");
             const grp = try self.allocator.create(Expr);
             grp.* = .{ .Grouping = .{ .e = expr } };
             return grp;
         },
-        else => unreachable,
+        else => {
+            try error_(self.peek(), "Expect expression.");
+            return ParseError.ParseError;
+        },
     }
 }
 
@@ -192,7 +195,6 @@ fn consume(self: *Parser, token_type: TokenType, message: []const u8) !Token {
     if (self.check(token_type)) return self.advance();
 
     try error_(self.peek(), message);
-
     return ParseError.ParseError;
 }
 

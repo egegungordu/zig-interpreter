@@ -112,7 +112,9 @@ pub fn main() !void {
             defer arena.deinit();
 
             const arena_allocator = arena.allocator();
-            const parse_tree = try allocParseTokens(arena_allocator, tokens);
+            const parse_tree = allocParseTokens(arena_allocator, tokens) catch {
+                std.process.exit(65);
+            };
 
             try stdout.print("{}\n", .{parse_tree});
         },
