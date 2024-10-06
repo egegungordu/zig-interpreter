@@ -45,15 +45,16 @@ const commands = [_][]const u8{ "tokenize", "parse" };
 const Command = enum {
     tokenize,
     parse,
+    evaluate,
 
     fn fromString(str: []const u8) ?Command {
-        if (std.mem.eql(u8, str, "tokenize")) {
-            return Command.tokenize;
-        } else if (std.mem.eql(u8, str, "parse")) {
-            return Command.parse;
-        } else {
-            return null;
+        const fields = std.meta.fields(Command);
+        inline for (fields) |field| {
+            if (std.mem.eql(u8, field.name, str)) {
+                return @enumFromInt(field.value);
+            }
         }
+        unreachable;
     }
 };
 
@@ -118,5 +119,6 @@ pub fn main() !void {
 
             try stdout.print("{}\n", .{parse_tree});
         },
+        Command.evaluate => {},
     }
 }
