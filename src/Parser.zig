@@ -2,8 +2,11 @@ const std = @import("std");
 const Token = @import("Scanner.zig").Token;
 const TokenType = @import("Scanner.zig").TokenType;
 const Expr = @import("expr.zig").Expr;
+const error_ = @import("main.zig").error_;
 
 const Parser = @This();
+
+const ParseError = error{ParseError};
 
 tokens: []Token,
 allocator: std.mem.Allocator,
@@ -32,7 +35,7 @@ pub fn parseToOwnedSlice(self: *Parser) !*Expr {
 }
 
 // expression    → equality
-fn expression(self: *Parser) !*Expr {
+fn expression(self: *Parser) error{ ParseError, NoSpaceLeft, OutOfMemory }!*Expr {
     return self.equality();
 }
 
@@ -152,27 +155,45 @@ fn unary(self: *Parser) !*Expr {
 // primary       → NUMBER | STRING | "true" | "false" | "nil"
 //               | "(" expression ")"
 fn primary(self: *Parser) !*Expr {
-    const new = try self.allocator.create(Expr);
     const next = self.advance();
     switch (next.token_type) {
         .NUMBER, .STRING => {
-            new.* = .{ .Literal = .{ .v = next.literal.? } };
+            const lit = try self.allocator.create(Expr);
+            lit.* = .{ .Literal = .{ .v = next.literal.? } };
+            return lit;
         },
         .TRUE => {
-            new.* = .{ .Literal = .{ .v = .{ .boolean = true } } };
+            const lit = try self.allocator.create(Expr);
+            lit.* = .{ .Literal = .{ .v = .{ .boolean = true } } };
+            return lit;
         },
         .FALSE => {
-            new.* = .{ .Literal = .{ .v = .{ .boolean = false } } };
+            const lit = try self.allocator.create(Expr);
+            lit.* = .{ .Literal = .{ .v = .{ .boolean = false } } };
+            return lit;
         },
         .NIL => {
-            new.* = .{ .Literal = .{ .v = .nil } };
+            const lit = try self.allocator.create(Expr);
+            lit.* = .{ .Literal = .{ .v = .nil } };
+            return lit;
         },
         .LEFT_PAREN => {
-            // todo
+            const expr = try self.expression();
+            _ = try self.consume(TokenType.RIGHT_PAREN, "Expected ')' after expression.");
+            const grp = try self.allocator.create(Expr);
+            grp.* = .{ .Grouping = .{ .e = expr } };
+            return grp;
         },
         else => unreachable,
     }
-    return new;
+}
+
+fn consume(self: *Parser, token_type: TokenType, message: []const u8) !Token {
+    if (self.check(token_type)) return self.advance();
+
+    try error_(self.peek(), message);
+
+    return ParseError.ParseError;
 }
 
 fn match(self: *Parser, types: anytype) bool {

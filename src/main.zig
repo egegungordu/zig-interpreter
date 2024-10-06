@@ -2,6 +2,7 @@ const std = @import("std");
 const Scanner = @import("Scanner.zig");
 const Parser = @import("Parser.zig");
 const Token = Scanner.Token;
+const TokenType = Scanner.TokenType;
 const Expr = @import("expr.zig").Expr;
 
 var had_error = false;
@@ -13,6 +14,16 @@ fn report(line: usize, where: []const u8, message: []const u8) void {
 
 pub fn reportError(line: usize, message: []const u8) void {
     report(line, "", message);
+}
+
+pub fn error_(token: Token, message: []const u8) !void {
+    if (token.token_type == TokenType.EOF) {
+        report(token.line, " at end", message);
+    } else {
+        const buf: []u8 = undefined;
+        const where = try std.fmt.bufPrint(buf, " at '{s}'", .{token.lexeme});
+        report(token.line, where, message);
+    }
 }
 
 // returns owned token slice
