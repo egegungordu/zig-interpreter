@@ -3,6 +3,51 @@ const Token = @import("Scanner.zig").Token;
 const TokenType = @import("Scanner.zig").TokenType;
 const Literal = @import("Scanner.zig").Literal;
 
+pub const Object = union(enum) {
+    string: []const u8,
+    number: f64,
+    boolean: bool,
+    nil,
+
+    // zig fmt: off
+    pub fn format(
+        self: Object, 
+        comptime fmt: []const u8, 
+        options: std.fmt.FormatOptions, 
+        writer: anytype
+    ) !void {
+        _ = fmt;
+        _ = options;
+
+        switch (self) {
+            .string => |str| try writer.print("{s}", .{ str }),
+            .number => |num| {
+                try writer.print("{d}", .{ num });
+            },
+            .boolean => |bln| {
+                if (bln) {
+                    try writer.print("true", .{});
+                } else {
+                    try writer.print("false", .{});
+                }
+            },
+            .nil => {
+                try writer.print("nil", .{});
+            }
+        }
+    }
+    // zig fmt: on
+
+    pub fn fromLiteral(literal: Literal) Object {
+        return switch (literal) {
+            .string => |str| .{ .string = str },
+            .number => |num| .{ .number = num },
+            .boolean => |bln| .{ .boolean = bln },
+            .nil => .nil,
+        };
+    }
+};
+
 // zig fmt: off
 pub const Expr = union(enum) { 
     Binary: struct { l: *Expr, o: Token, r: *Expr },
@@ -37,9 +82,9 @@ pub const Expr = union(enum) {
         }
     }
 
-    pub fn evaluate(self: Expr) Literal {
+    pub fn evaluate(self: Expr) Object {
         return switch (self) {
-            .Literal => self.Literal.v,
+            .Literal => Object.fromLiteral(self.Literal.v),
             .Grouping => self.Grouping.e.evaluate(),
             else => unreachable
         };
