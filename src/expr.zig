@@ -3,6 +3,8 @@ const Token = @import("Scanner.zig").Token;
 const TokenType = @import("Scanner.zig").TokenType;
 const Literal = @import("Scanner.zig").Literal;
 
+const RuntimeError = error{OperandMustBeANumber};
+
 pub const Object = union(enum) {
     string: []const u8,
     number: f64,
@@ -98,17 +100,37 @@ pub const Expr = union(enum) {
                 const right = un.r.evaluate();
 
                 return switch (un.o.token_type) {
-                    .MINUS => switch (right) {
-                        .number => .{ .number = -right.number },
-                        else => .nil
+                    .MINUS => {
+                        checkNumberOperand(un.o);
+                        return .{ .number = -right.number };
                     },
                     .BANG => .{ .boolean = !right.isTruthy() },
                     else => .nil
                 };
 
             },
+            // .Binary => |bin| {
+            //     const right = bin.r.evaluate();
+            //     const left = bin.l.evaluate();
+            //
+            //     return switch (bin.o.token_type) {
+            //         .MINUS => switch (right) {
+            //             .number =>
+            //         },
+            //         .SLASH =>
+            //         .STAR =>
+            //     }
+            //
+            // },
             else => unreachable
         };
+    }
+
+    fn checkNumberOperand(operand: Object) !void {
+        switch (operand) {
+            .number => return,
+            else => return RuntimeError.OperandMustBeANumber
+        }
     }
 };
 // zig fmt: on
