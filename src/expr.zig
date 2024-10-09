@@ -46,6 +46,14 @@ pub const Object = union(enum) {
             .nil => .nil,
         };
     }
+
+    pub fn isTruthy(object: Object) bool {
+        if (object == .nil) return false;
+        return switch (object) {
+            .boolean => |bln| bln,
+            else => true,
+        };
+    }
 };
 
 // zig fmt: off
@@ -84,8 +92,21 @@ pub const Expr = union(enum) {
 
     pub fn evaluate(self: Expr) Object {
         return switch (self) {
-            .Literal => Object.fromLiteral(self.Literal.v),
-            .Grouping => self.Grouping.e.evaluate(),
+            .Literal => |lit| Object.fromLiteral(lit.v),
+            .Grouping => |grp| grp.e.evaluate(),
+            .Unary => |un| {
+                const right = un.r.evaluate();
+
+                return switch (un.o.token_type) {
+                    .MINUS => switch (right) {
+                        .number => .{ .number = -right.number },
+                        else => .nil
+                    },
+                    .BANG => .{ .boolean = !right.isTruthy() },
+                    else => .nil
+                };
+
+            },
             else => unreachable
         };
     }
