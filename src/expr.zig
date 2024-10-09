@@ -92,16 +92,16 @@ pub const Expr = union(enum) {
         }
     }
 
-    pub fn evaluate(self: Expr) Object {
+    pub fn evaluate(self: Expr) !Object {
         return switch (self) {
             .Literal => |lit| Object.fromLiteral(lit.v),
             .Grouping => |grp| grp.e.evaluate(),
             .Unary => |un| {
-                const right = un.r.evaluate();
+                const right = try un.r.evaluate();
 
                 return switch (un.o.token_type) {
                     .MINUS => {
-                        checkNumberOperand(un.o);
+                        try checkNumberOperand(right);
                         return .{ .number = -right.number };
                     },
                     .BANG => .{ .boolean = !right.isTruthy() },
@@ -109,20 +109,48 @@ pub const Expr = union(enum) {
                 };
 
             },
-            // .Binary => |bin| {
-            //     const right = bin.r.evaluate();
-            //     const left = bin.l.evaluate();
-            //
-            //     return switch (bin.o.token_type) {
-            //         .MINUS => switch (right) {
-            //             .number =>
-            //         },
-            //         .SLASH =>
-            //         .STAR =>
-            //     }
-            //
-            // },
-            else => unreachable
+            .Binary => |bin| {
+                const left = try bin.l.evaluate();
+                const right = try bin.r.evaluate();
+
+                return switch (bin.o.token_type) {
+                    .GREATER => {
+                        try checkNumberOperands(left, right);
+                        return .{ .boolean = left.number > right.number };
+                    },
+                    .GREATER_EQUAL => {
+                        try checkNumberOperands(left, right);
+                        return .{ .boolean = left.number >= right.number };
+                    },
+
+                    .LESS => {
+                        try checkNumberOperands(left, right);
+                        return .{ .boolean = left.number < right.number };
+                    },
+                    .LESS_EQUAL => {
+                        try checkNumberOperands(left, right);
+                        return .{ .boolean = left.number <= right.number };
+                    },
+                    .MINUS => {
+                        try checkNumberOperands(left, right);
+                        return .{ .number = left.number - right.number };
+                    },
+                    .SLASH => {
+                        try checkNumberOperands(left, right);
+                        return .{ .number = left.number / right.number };
+                    },
+                    .STAR => {
+                        try checkNumberOperands(left, right);
+                        return .{ .number = left.number * right.number };
+                    },
+                    .PLUS => {
+                        // TODO: add string support
+                        try checkNumberOperands(left, right);
+                        return .{ .number = left.number + right.number };
+                    },
+                    else => .nil
+                };
+            },
         };
     }
 
@@ -131,6 +159,11 @@ pub const Expr = union(enum) {
             .number => return,
             else => return RuntimeError.OperandMustBeANumber
         }
+    }
+
+    fn checkNumberOperands(left: Object, right: Object) !void {
+        try checkNumberOperand(left);
+        try checkNumberOperand(right);
     }
 };
 // zig fmt: on

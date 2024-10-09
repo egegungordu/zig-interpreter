@@ -135,7 +135,7 @@ pub fn main() !void {
                 std.process.exit(65);
             };
 
-            const result = parse_tree.evaluate();
+            const result = try parse_tree.evaluate();
 
             try stdout.print("{}\n", .{result});
         },
