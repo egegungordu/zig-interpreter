@@ -36,11 +36,12 @@ pub const Literal = union(enum) {
         switch (self) {
             Literal.string => |str| try writer.print("{s}", .{ str }),
             Literal.number => |num| {
-                if (@ceil(num) == num) {
-                    try writer.print("{d}.0", .{ num });
-                } else {
-                    try writer.print("{d}", .{ num });
-                }
+                try writer.print("{d}", .{ num });
+                // if (@ceil(num) == num) {
+                //     try writer.print("{d}.0", .{ num });
+                // } else {
+                //     try writer.print("{d}", .{ num });
+                // }
             },
             Literal.boolean => |bln| {
                 if (bln) {
