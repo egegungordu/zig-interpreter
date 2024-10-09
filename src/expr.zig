@@ -37,6 +37,13 @@ pub const Expr = union(enum) {
         }
     }
 
+    pub fn evaluate(self: Expr) Literal {
+        return switch (self) {
+            .Literal => self.Literal.v,
+            .Grouping => self.Grouping.e.evaluate(),
+            else => unreachable
+        };
+    }
 };
 // zig fmt: on
 

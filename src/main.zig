@@ -119,6 +119,25 @@ pub fn main() !void {
 
             try stdout.print("{}\n", .{parse_tree});
         },
-        Command.evaluate => {},
+        Command.evaluate => {
+            const tokens = try allocTokenizeFile(allocator, file_contents);
+            defer allocator.free(tokens);
+
+            if (had_error) {
+                std.process.exit(65);
+            }
+
+            var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+            defer arena.deinit();
+
+            const arena_allocator = arena.allocator();
+            const parse_tree = allocParseTokens(arena_allocator, tokens) catch {
+                std.process.exit(65);
+            };
+
+            const result = parse_tree.evaluate();
+
+            try stdout.print("{}\n", .{result});
+        },
     }
 }
