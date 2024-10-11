@@ -135,7 +135,9 @@ pub fn main() !void {
                 std.process.exit(65);
             };
 
-            const result = try parse_tree.evaluate(arena_allocator);
+            const result = parse_tree.evaluate(arena_allocator) catch {
+                std.process.exit(70);
+            };
 
             try stdout.print("{}\n", .{result});
         },
