@@ -3,7 +3,12 @@ const Token = @import("Scanner.zig").Token;
 const TokenType = @import("Scanner.zig").TokenType;
 const Literal = @import("Scanner.zig").Literal;
 
-const RuntimeError = error{OperandMustBeANumber};
+// zig fmt: off
+const RuntimeError = error{ 
+    OperandMustBeANumber, 
+    OperandsNotSupportPlus 
+};
+// zig fmt: on
 
 pub const Object = union(enum) {
     string: []const u8,
@@ -55,6 +60,34 @@ pub const Object = union(enum) {
             .boolean => |bln| bln,
             else => true,
         };
+    }
+    // private boolean isEqual(Object a, Object b) {
+    //      if (a == null && b == null) return true;
+    //      if (a == null) return false;
+    //      return a.equals(b);
+    //    }
+    pub fn isEqual(a: Object, b: Object) bool {
+        if (a == .nil and b == .nil) return true;
+        if (a == .nil) return false;
+
+        switch (a) {
+            .string => {
+                if (b != .string) return false;
+                return std.mem.eql(u8, a.string, b.string);
+            },
+            .number => {
+                if (b != .number) return false;
+                return a.number == b.number;
+            },
+            .boolean => {
+                if (b != .boolean) return false;
+                return a.boolean == b.boolean;
+            },
+            .nil => {
+                if (b != .nil) return false;
+                return true;
+            },
+        }
     }
 };
 
@@ -114,6 +147,12 @@ pub const Expr = union(enum) {
                 const right = try bin.r.evaluate(allocator);
 
                 return switch (bin.o.token_type) {
+                    .EQUAL_EQUAL => {
+                        return .{ .boolean = left.isEqual(right) };
+                    },
+                    .BANG_EQUAL => {
+                        return .{ .boolean = !left.isEqual(right) };
+                    },
                     .GREATER => {
                         try checkNumberOperands(left, right);
                         return .{ .boolean = left.number > right.number };
@@ -122,7 +161,6 @@ pub const Expr = union(enum) {
                         try checkNumberOperands(left, right);
                         return .{ .boolean = left.number >= right.number };
                     },
-
                     .LESS => {
                         try checkNumberOperands(left, right);
                         return .{ .boolean = left.number < right.number };
@@ -144,8 +182,6 @@ pub const Expr = union(enum) {
                         return .{ .number = left.number * right.number };
                     },
                     .PLUS => {
-                        // TODO: add string support
-
                         if (left == .string and right == .string) {
                             const concat = try std.fmt.allocPrint(allocator, "{s}{s}", .{left.string, right.string});
                             return .{
@@ -156,7 +192,7 @@ pub const Expr = union(enum) {
                             return .{ .number = left.number + right.number };
                         }
                         
-                        return .nil;
+                        return RuntimeError.OperandsNotSupportPlus;
                     },
                     else => .nil
                 };
