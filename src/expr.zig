@@ -92,12 +92,12 @@ pub const Expr = union(enum) {
         }
     }
 
-    pub fn evaluate(self: Expr) !Object {
+    pub fn evaluate(self: Expr, allocator: std.mem.Allocator) !Object {
         return switch (self) {
             .Literal => |lit| Object.fromLiteral(lit.v),
-            .Grouping => |grp| grp.e.evaluate(),
+            .Grouping => |grp| grp.e.evaluate(allocator),
             .Unary => |un| {
-                const right = try un.r.evaluate();
+                const right = try un.r.evaluate(allocator);
 
                 return switch (un.o.token_type) {
                     .MINUS => {
@@ -110,8 +110,8 @@ pub const Expr = union(enum) {
 
             },
             .Binary => |bin| {
-                const left = try bin.l.evaluate();
-                const right = try bin.r.evaluate();
+                const left = try bin.l.evaluate(allocator);
+                const right = try bin.r.evaluate(allocator);
 
                 return switch (bin.o.token_type) {
                     .GREATER => {
@@ -145,8 +145,18 @@ pub const Expr = union(enum) {
                     },
                     .PLUS => {
                         // TODO: add string support
-                        try checkNumberOperands(left, right);
-                        return .{ .number = left.number + right.number };
+
+                        if (left == .string and right == .string) {
+                            const concat = try std.fmt.allocPrint(allocator, "{s}{s}", .{left.string, right.string});
+                            return .{
+                                .string = concat
+                            };
+
+                        } else if (left == .number and right == .number) {
+                            return .{ .number = left.number + right.number };
+                        }
+                        
+                        return .nil;
                     },
                     else => .nil
                 };
