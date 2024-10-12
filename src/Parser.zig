@@ -2,6 +2,7 @@ const std = @import("std");
 const Token = @import("Scanner.zig").Token;
 const TokenType = @import("Scanner.zig").TokenType;
 const Expr = @import("expr.zig").Expr;
+const Stmt = @import("stmt.zig").Stmt;
 const error_ = @import("main.zig").error_;
 
 const Parser = @This();
@@ -11,6 +12,12 @@ const ParseError = error{ParseError};
 tokens: []Token,
 allocator: std.mem.Allocator,
 current: usize,
+
+// program       → statement* EOF ;
+// statement     → exprStmt
+//               | printStmt ;
+// exprStmt      → expression ";" ;
+// printStmt     → "print" expression ";" ;
 
 // expression    → equality
 // equality      → comparison ( ( "!=" | "==" ) comparison )*
@@ -30,8 +37,45 @@ pub fn deinit(self: *Parser) void {
     _ = self;
 }
 
-pub fn parseToOwnedSlice(self: *Parser) !*Expr {
+// program       → statement* EOF ;
+pub fn parseToOwnedSlice(self: *Parser) ![]*Stmt {
+    var statements = std.ArrayList(*Stmt).init(self.allocator);
+
+    while (!self.isAtEnd()) {
+        try statements.append(try self.statement());
+    }
+
+    return try statements.toOwnedSlice();
+}
+
+pub fn parseToOwnedSliceExpr(self: *Parser) !*Expr {
     return self.expression();
+}
+
+// statement     → exprStmt
+//               | printStmt ;
+fn statement(self: *Parser) !*Stmt {
+    if (self.match(.{TokenType.PRINT})) {
+        return self.printStatement();
+    }
+
+    return self.expressionStatement();
+}
+
+fn printStatement(self: *Parser) !*Stmt {
+    const value = try self.expression();
+    _ = try self.consume(.SEMICOLON, "Expect ';' after value.");
+    const prt = try self.allocator.create(Stmt);
+    prt.* = .{ .Print = .{ .e = value } };
+    return prt;
+}
+
+fn expressionStatement(self: *Parser) !*Stmt {
+    const value = try self.expression();
+    _ = try self.consume(TokenType.SEMICOLON, "Expect ';' after expression.");
+    const exp = try self.allocator.create(Stmt);
+    exp.* = .{ .Expression = .{ .e = value } };
+    return exp;
 }
 
 // expression    → equality
