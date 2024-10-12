@@ -4,6 +4,7 @@ const Parser = @import("Parser.zig");
 const Token = Scanner.Token;
 const TokenType = Scanner.TokenType;
 const Expr = @import("expr.zig").Expr;
+const Stmt = @import("stmt.zig").Stmt;
 
 var had_error = false;
 
@@ -34,10 +35,16 @@ fn allocTokenizeFile(allocator: std.mem.Allocator, file_contents: []u8) ![]Token
 }
 
 // return owned parse tree slice
-fn allocParseTokens(allocator: std.mem.Allocator, tokens: []Token) !*Expr {
+fn allocParseTokens(allocator: std.mem.Allocator, tokens: []Token) ![]*Stmt {
     var parser = Parser.init(allocator, tokens);
     defer parser.deinit();
     return try parser.parseToOwnedSlice();
+}
+
+fn allocParseTokensAsExpr(allocator: std.mem.Allocator, tokens: []Token) !*Expr {
+    var parser = Parser.init(allocator, tokens);
+    defer parser.deinit();
+    return try parser.parseToOwnedSliceExpr();
 }
 
 const commands = [_][]const u8{ "tokenize", "parse" };
@@ -46,6 +53,7 @@ const Command = enum {
     tokenize,
     parse,
     evaluate,
+    run,
 
     fn fromString(str: []const u8) ?Command {
         const fields = std.meta.fields(Command);
@@ -113,7 +121,7 @@ pub fn main() !void {
             defer arena.deinit();
 
             const arena_allocator = arena.allocator();
-            const parse_tree = allocParseTokens(arena_allocator, tokens) catch {
+            const parse_tree = allocParseTokensAsExpr(arena_allocator, tokens) catch {
                 std.process.exit(65);
             };
 
@@ -131,15 +139,37 @@ pub fn main() !void {
             defer arena.deinit();
 
             const arena_allocator = arena.allocator();
-            const parse_tree = allocParseTokens(arena_allocator, tokens) catch {
+            const parse_tree = allocParseTokensAsExpr(arena_allocator, tokens) catch {
                 std.process.exit(65);
             };
 
-            const result = parse_tree.evaluate(arena_allocator) catch {
+            const obj = parse_tree.evaluate(arena_allocator) catch {
                 std.process.exit(70);
             };
 
-            try stdout.print("{}\n", .{result});
+            try stdout.print("{}\n", .{obj});
+        },
+        Command.run => {
+            const tokens = try allocTokenizeFile(allocator, file_contents);
+            defer allocator.free(tokens);
+
+            if (had_error) {
+                std.process.exit(65);
+            }
+
+            var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+            defer arena.deinit();
+
+            const arena_allocator = arena.allocator();
+            const statements = allocParseTokens(arena_allocator, tokens) catch {
+                std.process.exit(65);
+            };
+
+            for (statements) |statement| {
+                statement.execute(allocator) catch {
+                    std.debug.print("Runtime error", .{});
+                };
+            }
         },
     }
 }
