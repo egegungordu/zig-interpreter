@@ -168,6 +168,7 @@ pub fn main() !void {
             for (statements) |statement| {
                 statement.execute(allocator) catch {
                     std.debug.print("Runtime error", .{});
+                    std.process.exit(70);
                 };
             }
         },
