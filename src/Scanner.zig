@@ -197,7 +197,7 @@ fn number(self: *Scanner) !void {
 }
 
 fn string(self: *Scanner) !void {
-    while (self.peek() != '\n' and !self.isAtEnd()) {
+    while (!self.isAtEnd()) {
         const next = self.advance();
         if (next == '"') {
             const literal = self.source[self.start + 1 .. self.current - 1];
